@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Membership Automation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .container {
+            max-width: 90%;
+            margin: 0 auto;
+        }
+        .btn-primary {
+            @apply bg-blue-600 text-white font-medium py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 md:p-8">
+
+<div id="app" class="bg-white p-6 md:p-10 rounded-2xl shadow-xl w-full container">
+    <div class="text-center mb-8">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-2">Join the Community!</h1>
+        <p class="text-gray-500 text-lg">Please fill out this form to get access to your membership benefits.</p>
+    </div>
+    <div id="form-message" class="hidden p-4 rounded-lg mb-4 text-sm"></div>
+    <form id="membership-form" class="space-y-6">
+        <div>
+            <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
+            <input type="text" id="name" name="name" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
+        </div>
+        <div>
+            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+            <input type="email" id="email" name="email" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
+        </div>
+        <div>
+            <label for="tier" class="block text-sm font-medium text-gray-700">Membership Tier</label>
+            <select id="tier" name="tier" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
+                <option value="Basic">Basic</option>
+                <option value="Gold">Gold</option>
+                <option value="Elite">Elite</option>
+                <option value="Platinum">Platinum</option>
+                <option value="Personal Coaching">Personal Coaching</option>
+                <option value="Personal Coaching +">Personal Coaching +</option>
+                <option value="Personal Coaching ++">Personal Coaching ++</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="w-full btn-primary">Submit Membership Request</button>
+        </div>
+    </form>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    setLogLevel('debug');
+
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const auth = getAuth(initializeApp(firebaseConfig));
+    const db = getFirestore(auth.app);
+
+    const formMessage = document.getElementById('form-message');
+    const form = document.getElementById('membership-form');
+
+    await signInAnonymously(auth);
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        formMessage.textContent = '';
+        formMessage.classList.add('hidden');
+
+        const name = form.name.value;
+        const email = form.email.value;
+        const tier = form.tier.value;
+
+        try {
+            const now = new Date();
+            const endDate = new Date(now);
+            endDate.setDate(now.getDate() + 30);
+            const memberData = {
+                name,
+                email,
+                tier,
+                joinDate: serverTimestamp(),
+                endDate,
+                status: 'pending'
+            };
+            
+            const membersCollectionRef = collection(db, `artifacts/${appId}/public/data/members`);
+            await addDoc(membersCollectionRef, memberData);
+
+            formMessage.textContent = 'Thank you! Your membership request has been submitted. We will verify your details and send you a welcome email shortly.';
+            formMessage.classList.remove('hidden', 'bg-red-100', 'text-red-700');
+            formMessage.classList.add('bg-green-100', 'text-green-700');
+            form.reset();
+
+        } catch (error) {
+            console.error("Error submitting form: ", error);
+            formMessage.textContent = 'There was an error submitting your request. Please try again.';
+            formMessage.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+            formMessage.classList.add('bg-red-100', 'text-red-700');
+        }
+    });
+</script>
+</body>
+</html>
