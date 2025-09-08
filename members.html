@@ -3,111 +3,181 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YouTube Membership Automation</title>
+    <title>Membership Sign-up</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-        }
-        .container {
-            max-width: 90%;
-            margin: 0 auto;
-        }
-        .btn-primary {
-            @apply bg-blue-600 text-white font-medium py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300;
+            background-color: #f3f4f6;
         }
     </style>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 md:p-8">
+<body class="flex items-center justify-center min-h-screen p-4">
 
-<div id="app" class="bg-white p-6 md:p-10 rounded-2xl shadow-xl w-full container">
-    <div class="text-center mb-8">
-        <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-2">Join the Community!</h1>
-        <p class="text-gray-500 text-lg">Please fill out this form to get access to your membership benefits.</p>
+    <!-- Main Container -->
+    <div class="w-full max-w-2xl bg-white p-8 rounded-xl shadow-2xl space-y-8">
+        <div class="text-center">
+            <h1 class="text-4xl font-extrabold text-gray-800">YouTube Membership</h1>
+            <p class="text-gray-500 mt-2">Join our exclusive member program and get instant access!</p>
+        </div>
+
+        <!-- Sign-up Form -->
+        <form id="membershipForm" class="space-y-6">
+            <div>
+                <label for="memberName" class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input type="text" id="memberName" name="memberName" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition duration-200">
+            </div>
+            <div>
+                <label for="memberEmail" class="block text-sm font-medium text-gray-700">Email Address</label>
+                <input type="email" id="memberEmail" name="memberEmail" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition duration-200">
+            </div>
+            <div>
+                <label for="youtubeChannel" class="block text-sm font-medium text-gray-700">YouTube Channel Link</label>
+                <p class="text-xs text-gray-400 mb-1">We'll use this to verify your membership status.</p>
+                <input type="url" id="youtubeChannel" name="youtubeChannel" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition duration-200">
+            </div>
+            <div>
+                <label for="membershipTier" class="block text-sm font-medium text-gray-700">Membership Tier</label>
+                <select id="membershipTier" name="membershipTier" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 transition duration-200">
+                    <option value="Basic">Basic</option>
+                    <option value="Gold">Gold</option>
+                    <option value="Elite">Elite</option>
+                    <option value="Platinum">Platinum</option>
+                    <option value="Personal Coaching">Personal Coaching</option>
+                    <option value="Personal Coaching+">Personal Coaching+</option>
+                    <option value="Personal Coaching++">Personal Coaching++</option>
+                </select>
+            </div>
+            <div>
+                <button type="submit" id="submitBtn"
+                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                    Submit Request
+                </button>
+            </div>
+        </form>
     </div>
-    <div id="form-message" class="hidden p-4 rounded-lg mb-4 text-sm"></div>
-    <form id="membership-form" class="space-y-6">
-        <div>
-            <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
-            <input type="text" id="name" name="name" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
+
+    <!-- Modal for Success/Loading -->
+    <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm"></div>
+        <div class="relative bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
+            <div id="modalContent">
+                <!-- Content will be injected here -->
+            </div>
+            <button id="closeModalBtn"
+                class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition duration-200 hidden">
+                Close
+            </button>
         </div>
-        <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-            <input type="email" id="email" name="email" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
-        </div>
-        <div>
-            <label for="tier" class="block text-sm font-medium text-gray-700">Membership Tier</label>
-            <select id="tier" name="tier" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
-                <option value="Basic">Basic</option>
-                <option value="Gold">Gold</option>
-                <option value="Elite">Elite</option>
-                <option value="Platinum">Platinum</option>
-                <option value="Personal Coaching">Personal Coaching</option>
-                <option value="Personal Coaching +">Personal Coaching +</option>
-                <option value="Personal Coaching ++">Personal Coaching ++</option>
-            </select>
-        </div>
-        <div>
-            <button type="submit" class="w-full btn-primary">Submit Membership Request</button>
-        </div>
-    </form>
-</div>
+    </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    setLogLevel('debug');
+        // IMPORTANT: Global variables are provided by the canvas environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-    const auth = getAuth(initializeApp(firebaseConfig));
-    const db = getFirestore(auth.app);
-
-    const formMessage = document.getElementById('form-message');
-    const form = document.getElementById('membership-form');
-
-    await signInAnonymously(auth);
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        formMessage.textContent = '';
-        formMessage.classList.add('hidden');
-
-        const name = form.name.value;
-        const email = form.email.value;
-        const tier = form.tier.value;
-
+        // Initialize Firebase services
+        let app;
+        let db;
+        let auth;
         try {
-            const now = new Date();
-            const endDate = new Date(now);
-            endDate.setDate(now.getDate() + 30);
-            const memberData = {
-                name,
-                email,
-                tier,
-                joinDate: serverTimestamp(),
-                endDate,
-                status: 'pending'
-            };
-            
-            const membersCollectionRef = collection(db, `artifacts/${appId}/public/data/members`);
-            await addDoc(membersCollectionRef, memberData);
-
-            formMessage.textContent = 'Thank you! Your membership request has been submitted. We will verify your details and send you a welcome email shortly.';
-            formMessage.classList.remove('hidden', 'bg-red-100', 'text-red-700');
-            formMessage.classList.add('bg-green-100', 'text-green-700');
-            form.reset();
-
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
         } catch (error) {
-            console.error("Error submitting form: ", error);
-            formMessage.textContent = 'There was an error submitting your request. Please try again.';
-            formMessage.classList.remove('hidden', 'bg-green-100', 'text-green-700');
-            formMessage.classList.add('bg-red-100', 'text-red-700');
+            console.error("Firebase initialization error:", error);
+            // Show error message to user
+            showModal("Error Initializing App", "There was an error setting up the application. Please try again later.");
         }
-    });
-</script>
+
+        const form = document.getElementById('membershipForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modalContent');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        // Function to show the custom modal with dynamic content
+        function showModal(title, message, isSuccess = false) {
+            modalContent.innerHTML = `
+                <div class="text-xl font-semibold">${title}</div>
+                <p class="mt-2 text-gray-500">${message}</p>
+            `;
+            if (isSuccess) {
+                closeModalBtn.classList.remove('hidden');
+            } else {
+                closeModalBtn.classList.add('hidden');
+            }
+            modal.classList.remove('hidden');
+        }
+
+        // Function to hide the custom modal
+        function hideModal() {
+            modal.classList.add('hidden');
+        }
+
+        // Event listener to close the modal
+        closeModalBtn.addEventListener('click', hideModal);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Submitting...';
+
+            showModal("Submitting...", "Please wait while we process your request.");
+
+            try {
+                // Ensure Firebase is initialized and user is authenticated
+                if (!db || !auth) {
+                    throw new Error("Firebase services are not initialized.");
+                }
+
+                // Sign in anonymously to ensure the user can write to the database
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                const formData = new FormData(form);
+                const joinDate = serverTimestamp();
+                const expiryDate = new Date();
+                expiryDate.setDate(expiryDate.getDate() + 30); // 30 days from now
+
+                const newRequest = {
+                    name: formData.get('memberName'),
+                    email: formData.get('memberEmail'),
+                    youtubeChannel: formData.get('youtubeChannel'),
+                    tier: formData.get('membershipTier'),
+                    joinDate: joinDate,
+                    expiryDate: expiryDate,
+                    status: 'pending',
+                    accessGranted: false,
+                    accessGrantedDate: null,
+                };
+
+                // Store the new membership request in Firestore
+                const docRef = await addDoc(collection(db, `artifacts/${appId}/public/data/memberships`), newRequest);
+                console.log("Document successfully written with ID:", docRef.id);
+
+                showModal("Success!", "Your membership request has been submitted successfully. We will review it shortly. You may close this window.");
+                submitBtn.classList.add('hidden');
+            } catch (error) {
+                console.error("Error submitting request:", error);
+                showModal("Submission Failed", "There was an error submitting your request. Please try again.");
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Submit Request';
+            }
+        });
+    </script>
 </body>
 </html>
