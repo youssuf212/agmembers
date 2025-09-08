@@ -3,383 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Membership Admin Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
         }
-        .container {
-            max-width: 90%;
-            margin: 0 auto;
+        .table-container {
+            overflow-x: auto;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .btn-primary {
-            @apply bg-blue-600 text-white font-medium py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition duration-300;
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            white-space: nowrap;
         }
-        .btn-danger {
-            @apply bg-red-600 text-white font-medium py-2 px-4 rounded-lg shadow-sm hover:bg-red-700 transition duration-300;
+        th {
+            background-color: #f9fafb;
+            color: #4b5563;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
         }
-        .btn-success {
-            @apply bg-green-600 text-white font-medium py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition duration-300;
+        tr:nth-child(even) {
+            background-color: #f3f4f6;
         }
-        .table-auto {
-            width: 100%;
-            border-collapse: collapse;
+        .status-pill {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
         }
-        .table-auto th, .table-auto td {
-            @apply border border-gray-200 p-4 text-left;
-        }
-        .table-auto th {
-            @apply bg-gray-100 font-semibold;
-        }
-        .modal {
-            @apply fixed inset-0 z-50 flex items-center justify-center p-4;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        .modal-content {
-            @apply bg-white p-6 rounded-lg shadow-xl w-full max-w-xl;
-        }
+        .status-pending { background-color: #fef3c7; color: #d97706; }
+        .status-verified { background-color: #d1fae5; color: #059669; }
+        .status-denied { background-color: #fee2e2; color: #ef4444; }
     </style>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4 md:p-8">
+<body class="p-8">
 
-<div id="app" class="bg-white p-6 md:p-10 rounded-2xl shadow-xl w-full container">
-    <!-- Content will be rendered here by JavaScript -->
-</div>
-
-<!-- Modal for email draft -->
-<div id="email-modal" class="modal hidden">
-    <div class="modal-content">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold">Welcome Email Draft</h2>
-            <button id="close-modal-btn" class="text-gray-500 hover:text-gray-700">&times;</button>
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto space-y-8">
+        <div class="flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-gray-900">Membership Requests</h1>
+            <div id="userInfo" class="text-sm text-gray-600">
+                <span id="userIdDisplay">Loading User ID...</span>
+            </div>
         </div>
-        <div id="email-draft-content" class="mb-4"></div>
-        <button id="copy-email-btn" class="w-full btn-primary">Copy to Clipboard</button>
+
+        <!-- Table Container -->
+        <div class="table-container">
+            <table class="w-full bg-white">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Tier</th>
+                        <th>Joined</th>
+                        <th>Expires</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="membershipTableBody">
+                    <!-- Data will be populated here by JavaScript -->
+                    <tr id="loadingRow">
+                        <td colspan="7" class="text-center py-8 text-gray-500">Loading requests...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- No Data Message -->
+        <div id="noDataMessage" class="hidden text-center py-16 text-gray-500 text-lg">
+            No new membership requests at this time.
+        </div>
     </div>
-</div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, updateDoc, deleteDoc, onSnapshot, collection, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    setLogLevel('debug');
-
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-    let db, auth;
-    let members = [];
-    let loading = true;
-    let isLoggedIn = false;
-    let loginMessage = { text: '', type: '' };
-
-    const ADMIN_USERNAME = 'joe';
-    const ADMIN_PASSWORD = 'joepass';
-
-    async function sendTelegramMessage(message) {
-        console.log("--- Telegram Notification ---");
-        console.log(`Sending Telegram message to +201279347434:`);
-        console.log(message);
-        console.log("--- End of Telegram Notification ---");
-    }
-
-    async function sendAccessAndEmail(memberEmail, memberName, memberTier) {
-        console.log("--- Sending Access & Email ---");
-        console.log(`Granting Google Drive access to: ${memberEmail}`);
-        console.log(`Sending welcome email to: ${memberEmail}`);
-        console.log(`Membership Info: Name: ${memberName}, Tier: ${memberTier}`);
-        console.log("--- End of process ---");
-    }
-
-    async function generateWelcomeEmail(member) {
-        const modal = document.getElementById('email-modal');
-        const contentDiv = document.getElementById('email-draft-content');
-        const copyBtn = document.getElementById('copy-email-btn');
-        contentDiv.innerHTML = `<p class="text-center text-gray-500">Generating email draft...</p>`;
-        modal.classList.remove('hidden');
-
-        const userQuery = `Draft a friendly and professional welcome email for a new YouTube channel member named ${member.name} with a ${member.tier} tier membership. The email should welcome them, thank them for joining, and inform them that access to the Google Drive folder and Slack has been granted. Use a conversational tone and keep it concise.`;
-        const apiKey = "";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-        try {
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }]
-            };
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            const emailText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            if (emailText) {
-                contentDiv.innerHTML = `<textarea class="w-full h-64 p-4 border rounded-lg resize-none text-gray-700 bg-gray-50">${emailText}</textarea>`;
-                copyBtn.onclick = () => {
-                    const textarea = contentDiv.querySelector('textarea');
-                    if (textarea) {
-                        textarea.select();
-                        document.execCommand('copy');
-                    }
-                };
-            } else {
-                contentDiv.innerHTML = `<p class="text-red-500">Error generating email. Please try again.</p>`;
-            }
-        } catch (error) {
-            console.error("Error generating email draft: ", error);
-            contentDiv.innerHTML = `<p class="text-red-500">Error generating email. Please check the console for details.</p>`;
-        }
-    }
-
-    async function playMemberInfo(member, button) {
-        button.disabled = true;
-        button.innerHTML = 'Loading...';
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        function base64ToArrayBuffer(base64) {
-            const binaryString = window.atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) { bytes[i] = binaryString.charCodeAt(i); }
-            return bytes.buffer;
-        }
-        function pcmToWav(pcm16, sampleRate) {
-            const pcmData = pcm16.buffer;
-            const numChannels = 1, bitsPerSample = 16;
-            const byteRate = (numChannels * sampleRate * bitsPerSample) / 8;
-            const blockAlign = (numChannels * bitsPerSample) / 8;
-            const wavData = new ArrayBuffer(44 + pcmData.byteLength);
-            const view = new DataView(wavData);
-            let offset = 0;
-            function writeString(s) {
-                for (let i = 0; i < s.length; i++) { view.setUint8(offset++, s.charCodeAt(i)); }
-            }
-            writeString('RIFF'); view.setUint32(offset, 36 + pcmData.byteLength, true); offset += 4;
-            writeString('WAVE');
-            writeString('fmt '); view.setUint32(offset, 16, true); offset += 4;
-            view.setUint16(offset, 1, true); offset += 2;
-            view.setUint16(offset, numChannels, true); offset += 2;
-            view.setUint32(offset, sampleRate, true); offset += 4;
-            view.setUint32(offset, byteRate, true); offset += 4;
-            view.setUint16(offset, blockAlign, true); offset += 2;
-            view.setUint16(offset, bitsPerSample, true); offset += 2;
-            writeString('data'); view.setUint32(offset, pcmData.byteLength, true); offset += 4;
-            const pcmBytes = new Uint8Array(pcmData);
-            for (let i = 0; i < pcmData.byteLength; i++) { view.setUint8(offset++, pcmBytes[i]); }
-            return new Blob([view], { type: 'audio/wav' });
-        }
-        const userQuery = `This is the information for a member named ${member.name}. Their email is ${member.email} and they have the ${member.tier} tier.`;
-        const apiKey = "";
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-        try {
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } } }
-                },
-                model: "gemini-2.5-flash-preview-tts"
-            };
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const result = await response.json();
-            const part = result?.candidates?.[0]?.content?.parts?.[0];
-            const audioData = part?.inlineData?.data;
-            const mimeType = part?.inlineData?.mimeType;
-            if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
-                const pcmData = base64ToArrayBuffer(audioData);
-                const pcm16 = new Int16Array(pcmData);
-                const wavBlob = pcmToWav(pcm16, sampleRate);
-                const audioUrl = URL.createObjectURL(wavBlob);
-                const audio = new Audio(audioUrl);
-                audio.onplaying = () => { button.innerHTML = 'Playing...'; };
-                audio.onended = () => { button.disabled = false; button.innerHTML = '🎧 Play Info'; };
-                audio.onerror = () => { button.disabled = false; button.innerHTML = 'Error'; };
-                audio.play();
-            } else {
-                console.error('API response did not contain valid audio data.');
-                button.innerHTML = 'Error';
-            }
-        } catch (error) {
-            console.error("Error generating audio: ", error);
-            button.disabled = false;
-            button.innerHTML = 'Error';
-        }
-    }
-
-    function render() {
-        const appDiv = document.getElementById('app');
-        if (loading) {
-            appDiv.innerHTML = `<div class="flex flex-col items-center justify-center p-8">
-                <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-                <p class="mt-4 text-gray-500 text-lg">Loading...</p>
-            </div>`;
-        } else if (isLoggedIn) {
-            renderAdminPanel(appDiv);
-        } else {
-            renderLoginForm(appDiv);
-        }
-    }
-
-    function renderLoginForm(appDiv) {
-        appDiv.innerHTML = `
-            <div class="text-center mb-8">
-                <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-2">Admin Login</h1>
-                <p class="text-sm text-gray-500 mb-2">For testing purposes, username: joe, password: joepass</p>
+    <!-- Modal for Confirmation -->
+    <div id="confirmModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm"></div>
+        <div class="relative bg-white p-6 rounded-xl shadow-lg max-w-sm w-full text-center">
+            <h3 class="text-xl font-semibold mb-2" id="confirmTitle">Confirm Action</h3>
+            <p class="text-gray-600" id="confirmMessage">Are you sure you want to approve this membership?</p>
+            <div class="mt-6 flex justify-center space-x-4">
+                <button id="cancelBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">
+                    Cancel
+                </button>
+                <button id="confirmBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    Confirm
+                </button>
             </div>
-            ${loginMessage.text ? `<div class="p-4 rounded-lg mb-4 text-sm ${loginMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${loginMessage.text}</div>` : ''}
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <input type="text" id="username" name="username" placeholder="Username" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
-                </div>
-                <div>
-                    <input type="password" id="password" name="password" placeholder="Password" required class="mt-1 block w-full px-4 py-3 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50 transition duration-300">
-                </div>
-                <div>
-                    <button type="submit" class="w-full btn-success">Login</button>
-                </div>
-            </form>
-        `;
-        document.getElementById('login-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const username = e.target.username.value;
-            const password = e.target.password.value;
-            if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                isLoggedIn = true;
-                loginMessage = { text: '', type: '' };
-                render();
-            } else {
-                loginMessage = { text: 'Invalid username or password.', type: 'error' };
-                render();
-            }
-        });
-    }
+        </div>
+    </div>
 
-    function renderAdminPanel(appDiv) {
-        appDiv.innerHTML = `
-            <div id="admin-panel">
-                <div class="flex items-center justify-between mb-8">
-                    <h1 class="text-3xl md:text-4xl font-extrabold text-gray-800">Admin Dashboard</h1>
-                    <button id="logout-btn" class="text-gray-500 hover:text-red-500 transition-colors duration-200">Logout</button>
-                </div>
-                ${members.length === 0 ? `<div class="p-8 text-center text-gray-500 text-lg">No membership requests found.</div>` : `
-                <div class="overflow-x-auto rounded-lg shadow-md">
-                    <table class="table-auto">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Tier</th>
-                                <th>Join Date</th>
-                                <th>End Date</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${members.map(member => `
-                                <tr class="hover:bg-gray-50 transition-colors duration-200" data-id="${member.id}">
-                                    <td class="whitespace-nowrap">${member.name}</td>
-                                    <td class="whitespace-nowrap">${member.email}</td>
-                                    <td class="whitespace-nowrap">${member.tier}</td>
-                                    <td>${member.joinDate ? new Date(member.joinDate.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
-                                    <td>${member.endDate ? new Date(member.endDate.seconds * 1000).toLocaleDateString() : 'N/A'}</td>
-                                    <td class="capitalize">${member.status}</td>
-                                    <td class="whitespace-nowrap flex space-x-2">
-                                        <button class="btn-success text-sm grant-access-btn">Access & Email</button>
-                                        <button class="btn-primary text-sm generate-email-btn">✨ Email</button>
-                                        <button class="btn-secondary text-sm play-audio-btn">🎧 Play Info</button>
-                                        <button class="btn-danger text-sm delete-btn">Delete</button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                `}
-            </div>
-        `;
-        appDiv.querySelectorAll('.grant-access-btn').forEach(btn => btn.addEventListener('click', async (e) => {
-            const memberId = e.target.closest('tr').dataset.id;
-            const member = members.find(m => m.id === memberId);
-            if (member) {
-                try {
-                    const docRef = doc(db, `artifacts/${appId}/public/data/members`, memberId);
-                    await updateDoc(docRef, { status: 'granted' });
-                    await sendAccessAndEmail(member.email, member.name, member.tier);
-                } catch (error) { console.error("Error granting access: ", error); }
-            }
-        }));
-        appDiv.querySelectorAll('.generate-email-btn').forEach(btn => btn.addEventListener('click', (e) => {
-            const memberId = e.target.closest('tr').dataset.id;
-            const member = members.find(m => m.id === memberId);
-            if (member) { generateWelcomeEmail(member); }
-        }));
-        appDiv.querySelectorAll('.play-audio-btn').forEach(btn => btn.addEventListener('click', (e) => {
-            const memberId = e.target.closest('tr').dataset.id;
-            const member = members.find(m => m.id === memberId);
-            if (member) { playMemberInfo(member, e.target); }
-        }));
-        appDiv.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', async (e) => {
-            const memberId = e.target.closest('tr').dataset.id;
-            const modal = document.createElement('div');
-            modal.className = 'modal'; modal.innerHTML = `<div class="modal-content"><h2 class="text-xl font-bold mb-4">Confirm Deletion</h2><p class="mb-4">Are you sure you want to delete this member?</p><div class="flex justify-end space-x-4"><button id="cancel-delete-btn" class="btn-primary">Cancel</button><button id="confirm-delete-btn" class="btn-danger">Delete</button></div></div>`;
-            document.body.appendChild(modal);
-            document.getElementById('cancel-delete-btn').addEventListener('click', () => { document.body.removeChild(modal); });
-            document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
-                document.body.removeChild(modal);
-                try {
-                    const docRef = doc(db, `artifacts/${appId}/public/data/members`, memberId);
-                    await deleteDoc(docRef);
-                } catch (error) { console.error("Error deleting member: ", error); }
-            });
-        }));
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            isLoggedIn = false;
-            members = [];
-            render();
-        });
-        document.getElementById('close-modal-btn').addEventListener('click', () => {
-            document.getElementById('email-modal').classList.add('hidden');
-        });
-        const membersCollectionRef = collection(db, `artifacts/${appId}/public/data/members`);
-        onSnapshot(membersCollectionRef, (snapshot) => {
-            members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            render();
-        }, (error) => {
-            console.error("Error fetching members:", error);
-            isLoggedIn = false;
-            render();
-        });
-    }
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    async function startApp() {
+        // IMPORTANT: Global variables are provided by the canvas environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase services
+        let app;
+        let db;
+        let auth;
         try {
-            const app = initializeApp(firebaseConfig);
+            app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
-            await signInAnonymously(auth);
-            loading = false;
-            render();
-        } catch (e) {
-            console.error("Error initializing Firebase:", e);
-            loading = false;
-            document.getElementById('app').innerHTML = `<div class="p-8 bg-red-100 rounded-lg text-red-700 text-center">
-                <h2 class="text-xl font-semibold mb-2">Error</h2>
-                <p>Failed to initialize the application. Please check the console for details.</p>
-            </div>`;
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
         }
-    }
 
-    window.onload = startApp;
-</script>
+        const tableBody = document.getElementById('membershipTableBody');
+        const noDataMessage = document.getElementById('noDataMessage');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const confirmModal = document.getElementById('confirmModal');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+
+        // Function to show the confirmation modal
+        function showConfirmModal(docId, name) {
+            confirmModal.dataset.docId = docId;
+            document.getElementById('confirmMessage').innerText = `Are you sure you want to approve the membership for ${name}?`;
+            confirmModal.classList.remove('hidden');
+        }
+
+        // Function to hide the modal
+        function hideConfirmModal() {
+            confirmModal.classList.add('hidden');
+        }
+
+        cancelBtn.addEventListener('click', hideConfirmModal);
+
+        confirmBtn.addEventListener('click', async () => {
+            hideConfirmModal();
+            const docId = confirmModal.dataset.docId;
+            if (!docId) return;
+
+            try {
+                // Update the document in Firestore
+                const memberDocRef = doc(db, `artifacts/${appId}/public/data/memberships`, docId);
+                await updateDoc(memberDocRef, {
+                    status: 'verified',
+                    accessGranted: true,
+                    accessGrantedDate: serverTimestamp(),
+                });
+
+                console.log(`Successfully updated membership for document ID: ${docId}`);
+
+                // Simulate actions (as a real app would require a backend service)
+                const memberData = document.querySelector(`tr[data-doc-id="${docId}"]`).dataset;
+                console.log(`
+                --- Action Log ---
+                ✅ Membership Approved!
+                Email sent to: ${memberData.email} with welcome info and access details.
+                Google Drive access granted to: ${memberData.email}.
+                Telegram message sent to +201279347434:
+                "New member joined: ${memberData.name} (${memberData.email}) joined the ${memberData.tier} tier on ${new Date().toLocaleDateString()}."
+                ------------------
+                `);
+
+            } catch (error) {
+                console.error("Error updating document or simulating actions:", error);
+            }
+        });
+
+        // Listen for user authentication state change
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userId = user.uid;
+                userIdDisplay.textContent = `Admin ID: ${userId}`;
+                console.log(`Signed in with user ID: ${userId}`);
+
+                // Setup real-time listener for membership requests
+                const membershipsColRef = collection(db, `artifacts/${appId}/public/data/memberships`);
+                onSnapshot(membershipsColRef, (querySnapshot) => {
+                    tableBody.innerHTML = '';
+                    if (querySnapshot.empty) {
+                        noDataMessage.classList.remove('hidden');
+                    } else {
+                        noDataMessage.classList.add('hidden');
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            const docId = doc.id;
+
+                            const row = document.createElement('tr');
+                            row.dataset.docId = docId;
+                            row.dataset.email = data.email;
+                            row.dataset.name = data.name;
+                            row.dataset.tier = data.tier;
+
+                            const joinDate = data.joinDate ? data.joinDate.toDate().toLocaleString() : 'N/A';
+                            const expiryDate = data.expiryDate ? data.expiryDate.toLocaleString() : 'N/A';
+
+                            let statusClass = 'status-pending';
+                            if (data.status === 'verified') statusClass = 'status-verified';
+                            if (data.status === 'denied') statusClass = 'status-denied';
+
+                            const actionsHtml = data.status === 'pending'
+                                ? `<button class="grant-btn px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition duration-200">Grant Access</button>`
+                                : `<span class="text-gray-500">Access Granted</span>`;
+
+                            row.innerHTML = `
+                                <td>${data.name}</td>
+                                <td>${data.email}</td>
+                                <td>${data.tier}</td>
+                                <td>${joinDate}</td>
+                                <td>${expiryDate}</td>
+                                <td><span class="status-pill ${statusClass}">${data.status}</span></td>
+                                <td>${actionsHtml}</td>
+                            `;
+
+                            tableBody.appendChild(row);
+                        });
+                        
+                        // Add event listeners to the new buttons
+                        document.querySelectorAll('.grant-btn').forEach(button => {
+                            button.addEventListener('click', (e) => {
+                                const row = e.target.closest('tr');
+                                const docId = row.dataset.docId;
+                                const name = row.dataset.name;
+                                showConfirmModal(docId, name);
+                            });
+                        });
+                    }
+                });
+
+            } else {
+                console.log("No user signed in. Signing in anonymously.");
+                // Sign in anonymously if no user is found
+                try {
+                    await signInAnonymously(auth);
+                } catch (error) {
+                    console.error("Error signing in anonymously:", error);
+                    userIdDisplay.textContent = "Error loading user.";
+                }
+            }
+        });
+    </script>
 </body>
 </html>
